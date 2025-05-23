@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use App\Models\User;
 
 class UserController extends Controller
 {
@@ -10,10 +12,63 @@ class UserController extends Controller
         return "accion de ruebas de user controller";
     }
     public function register(Request $request){
-        $name = $request->input('name');
-        $surname = $request->input('surname');
-        return 'ayuda mundo '.$name.$surname;
+        //recoger los datos del usuario con post
+        // $json = $request->input('json',null); // es la forma de recibir con x-www-form-urlencode
+        $json = $request->all(); //forma de recibir con json
+
+        // limpiar datos
+        $params = array_map('trim',$json);
+
+        //validar datos
+        $validate = Validator::make($params,[
+            'name'      => 'required|alpha',
+            'surname'   => 'required|alpha',
+            'email'     => 'required|email|unique:users', // comprueba en la bd de users si existe el correo
+            'password'  => 'required',
+        ]);
+
+        if($validate->fails()){
+            $data = array(
+                'status'  => 'error',
+                'code'    => 400,
+                'message' => 'los datos enviados no son correctos',
+                'error'   => $validate->errors()
+            );
+            return response()->json($data,$data['code']);
+        }
+
+        //cifrar contraseña
+        $pwd = password_hash($params['password'], PASSWORD_BCRYPT,['cost' => 6]);
+
+        try {
+            //crear usuario
+            $user = new User();
+            $user->name     = $params['name'];
+            $user->surname  = $params['surname'];
+            $user->email    = $params['email'];
+            $user->role     = 'ROLE_USER';
+            $user->password = $pwd;
+
+            // //guardar usuario
+            $user->save();
+
+            $data = array(
+                'status'  => 'success',
+                'code'    => 200,
+                'message' => 'Se ha creado el usuario'
+            );
+        }  catch (\Exception $e) {
+            $data = array(
+                'status'  => 'error',
+                'code'    => 500,
+                'message' => 'Error al crear el usuario',
+                'error'   => $e->getMessage(),
+            );
+        }
+
+        return response()->json($data,$data['code']);
     }
+
     public function login(Request $request){
         return 'ayuda mundo';
     }
