@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Models\User;
+use App\Helpers\JwtAuth;
 
 class UserController extends Controller
 {
@@ -70,6 +71,44 @@ class UserController extends Controller
     }
 
     public function login(Request $request){
-        return 'ayuda mundo';
+
+        $json = $request->all();
+        // validar_datos
+        $params = array_map('trim',$json);
+
+        $validate = Validator::make($params,[
+            'email'     => 'required|email', // comprueba en la bd de users si existe el correo
+            'password'  => 'required',
+        ]);
+        
+        if($validate->fails()){
+            $data = array(
+                'status'  => 'error',
+                'code'    => 404,
+                'message' => 'El usuario no se ha podido identificar',
+                'error'   => $validate->errors()
+            );
+            return response()->json($data,$data['code']);
+        }
+
+        // devolver token o datos
+        $jwtAuth = new JwtAuth();
+        $data = $jwtAuth->signUp($json['email'], $json['password']);
+        if(!empty($params->getToken)){
+            $data = $jwtAuth->signUp($json['email'], $json['password'], true);
+        }
+        return response()->json($data,200);
+    }
+
+    public function update(Request $request){
+        $token = $request->header('Authorization');
+        $jwtAuth = new JwtAuth();
+        $checkToken = $jwtAuth->checkToken($token);
+
+        if($checkToken){
+            echo "<h1>correcto</h1>";
+        }else{
+            echo "<h1>NO correcto</h1>";
+        }
     }
 }
